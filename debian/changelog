@@ -1,0 +1,10 @@
+ros-noetic-rm-controllers (0.1.1-2focal) focal; urgency=high
+
+  * Set all version to the same
+  * Add license to robot_state_controller source files
+  * Add rm_controllers
+  * Contributors: qiayuan
+
+ -- Qiayuan Liao <liaoqiayuan@gmail.com>  Wed, 11 Aug 2021 16:00:00 -0000
+
+
