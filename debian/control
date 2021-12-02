@@ -1,0 +1,12 @@
+Source: ros-noetic-rm-chassis-controllers
+Section: misc
+Priority: optional
+Maintainer: Qiayuan Liao <liaoqiayuan@gmail.com>
+Build-Depends: debhelper (>= 9.0.0), ros-noetic-angles, ros-noetic-catkin, ros-noetic-control-toolbox, ros-noetic-controller-interface, ros-noetic-effort-controllers, ros-noetic-forward-command-controller, ros-noetic-hardware-interface, ros-noetic-pluginlib, ros-noetic-realtime-tools, ros-noetic-rm-common, ros-noetic-rm-msgs, ros-noetic-roscpp, ros-noetic-roslint, ros-noetic-tf2, ros-noetic-tf2-geometry-msgs
+Homepage: 
+Standards-Version: 3.9.2
+
+Package: ros-noetic-rm-chassis-controllers
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}, ros-noetic-angles, ros-noetic-control-toolbox, ros-noetic-controller-interface, ros-noetic-effort-controllers, ros-noetic-forward-command-controller, ros-noetic-hardware-interface, ros-noetic-imu-sensor-controller, ros-noetic-pluginlib, ros-noetic-realtime-tools, ros-noetic-rm-common, ros-noetic-rm-msgs, ros-noetic-robot-localization, ros-noetic-roscpp, ros-noetic-roslint, ros-noetic-tf2, ros-noetic-tf2-geometry-msgs
+Description: RoboMaster standard robot Chassis controller
