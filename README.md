@@ -1,55 +1,45 @@
 # rm_chassis_controllers
-***
+
 ## Overview
-***
-This is a package about the chassis controllers,including the the controllers of balance,chassis base and mecanum.
-#### Key worlds:
-chassis,mecanum,ROS
-### License
-The source code is released under a [ BSD 3-Clause license](http://192.168.0.100:7070/dynamicx/rm_gimbal_controllers/-/blob/master/LICENSE)
-#### Author:QiayuanLiao
-#### Affiliation:DynamicX
-#### Maintainer: QiayuanLiao
-The PACKAGE NAME package has been tested under [ROS](https://www.ros.org/) Indigo, Melodic and Noetic on respectively Ubuntu 14.04, 18.04 and
-20.04. This is research code, expect that it changes often and any fitness for a particular purpose is disclaimed.
 
-[![Build Status](http://rsl-ci.ethz.ch/buildStatus/icon?job=ros_best_practices)](http://rsl-ci.ethz.ch/job/ros_best_practices/)
+There are four states: raw, follow, gyro and twist. The output torque and speed of each motor of the chassis can be calculated according to the current state of the control, the received speed and pose of the pan/tilt, and the speed and acceleration commands, and the data is returned by the motor to calculate The speed and posture of the chassis are released. The control algorithm involved in the chassis controller is PID algorithm.
 
-![Example image](doc/example.jpg)
+**Keywords:** mecanum, swerve, balance, chassis, ROS, RoboMaster
 
-[comment]: <> (### Publications)
+### Hardware interface type
 
-[comment]: <> (If you use this work in an academic context, please cite the following publication&#40;s&#41;:)
++ `JointStateInterface` Used to get the position and speed of chassis wheel joint.
 
-[comment]: <> (* P. Fankhauser, M. Bloesch, C. Gehring, M. Hutter, and R. Siegwart: **PAPER TITLE**. IEEE/RSJ International Conference)
++ `EffortJointInterface` Used to send the torque command of chassis wheel joint.
 
-[comment]: <> (  on Intelligent Robots and Systems &#40;IROS&#41;, 2015. &#40;[PDF]&#40;http://dx.doi.org/10.3929/ethz-a-010173654&#41;&#41;)
-
-[comment]: <> (        @inproceedings{Fankhauser2015,)
-
-[comment]: <> (            author = {Fankhauser, P\'{e}ter and Hutter, Marco},)
-
-[comment]: <> (            booktitle = {IEEE/RSJ International Conference on Intelligent Robots and Systems &#40;IROS&#41;},)
-
-[comment]: <> (            title = {{PAPER TITLE}},)
-
-[comment]: <> (            publisher = {IEEE},)
-
-[comment]: <> (            year = {2015})
-
-[comment]: <> (        })
++ `RoboSateInterface` Used for high-frequency maintenance of the transformation relationship of changing odom to
+  base_link.
 
 ## Installation
-***
-#### Installation from Packages
-        sudo apt-get install ros-noetic-...
+
+### Installation from Packages
+
+To install all packages from the this repository as Debian packages use
+
+```
+sudo apt-get install ros-noetic-rm-chassis-controllers
+```
+
 Or better, use `rosdep`:
 
-        sudo rosdep install --from-paths src
-#### Building from Source
-##### Dependencies
-* [Robot Operating System (ROS) ](http://wiki.ros.org/) (middleware for robotics),
-* [Eigen](https://eigen.tuxfamily.org/index.php?title=Main_Page) (linear algebra library)
+```
+sudo rosdep install --from-paths src
+```
+
+### Building from Source
+
+#### Dependencies
+
+* [Robot Operating System (ROS)](http://wiki.ros.org/) (middleware for robotics),
+* roscpp
+* roslint
+* rm_msgs
+* rm_common
 * pluginlib
 * hardware_interface
 * controller_interface
@@ -60,39 +50,182 @@ Or better, use `rosdep`:
 * tf2
 * tf2_geometry_msgs
 * angles
+* imu_sensor_controller
+* robot_localization
 
 #### Building
 
-To build from source, clone the latest version from this repository into your catkin workspace and compile the package
-using
+* Build this package with catkin build. Clone the latest version from this repository into your catkin workspace.
 
-	cd catkin_workspace/src
-	git clone https://github.com/ethz-asl/ros_best_practices.git
-	cd ../
-	rosdep install --from-paths . --ignore-src
-	catkin_make
-
+```
+catkin_workspace/src
+git clone https://github.com/rm-controls/rm_controllers.git
+rosdep install --from-paths . --ignore-src
+catkin build
+```
 
 ## Usage
-***
-* Run the controller with mon launch:
 
-        mon launch rm_chassis_controller load_controllers.launch
-## Config
-***
-* auto.yaml
-* balance.yaml
-* localization.yaml
-* engineer.yaml
-* hero.yaml
-* sentry.yaml
-* standard3.yaml
-* standard4.yaml
-* standard5.yaml
+Run the controller with mon launch:
+
+```
+mon launch rm_chassis_controllers load_controllers.launch
+```
+
 ## Launch files
-***
-* load_controller.launch
+
+* **load_controllers.launch:** It loads tf, robot_localization and some controllers, robot_state_controller, joint_state_controller and chassis controller are included.
+
+## ROS API
+
+#### Subscribed Topics
+
+* **`base_imu`** ([sensor_msgs/Imu](http://docs.ros.org/en/api/sensor_msgs/html/msg/Imu.html))
+
+  The inertial measurement unit data of base command.
+
+* **`command`** (rm_msgs::ChassisCmd)
+
+  Set the mode, acceleration, and maximum power of the chassis.
+
+* **`cmd_vel`** ([geometry_msgs/Twist](http://docs.ros.org/en/api/geometry_msgs/html/msg/Twist.html))
+
+  Set the speed of the chassis.
+
+#### Published Topics
+* **`odom`**([nav_msgs/Odometry](http://docs.ros.org/en/api/nav_msgs/html/msg/Odometry.html))
+
+  Chassis odometer information (speed, position, covariance).
+
+#### Parameters
+
+##### common
+
+* **`wheel_radius`** (double)
+
+  Radius of the wheels.
+
+* **`wheel_track`** (double)
+
+  The distance between the center of the left and right wheels on the same side.
+
+* **`wheel_base`** (double)
+
+  The distance between the center of the front and rear wheels on the same side.
+
+* **`twist_angle`** (double)
+
+  Amplitude of twist at `twist` state.
+
+* **`enable_odom_tf`** (bool, default: true)
+
+  Option.If set this param true, it will send Transform from odom to base.
+
+* **`twist_covariance_diagonal`** (double[6])
+
+  The diagonal covariance matrix of twist.
+
+* **`publish_rate`** (double, default: 50)
+
+  Frequency (in Hz) of publishing Transform.
+
+* **`coeff`** (double)
+
+  A coefficient. Adjust this coefficient to reduce the impact of power loss.
+
+* **`min_vel`** (double)
+
+  The minimum velocity of chassis joint which is used to calculate the max torque.
+
+* **`timeout`** (double)
+
+  Allowed period (in s) between two commands. If the time is exceed this period, the speed of chassis will be set 0.
+
+##### Balance
+
+* **`joint_left_name`** (string, default: "joint_left")
+
+  Left wheel joint name or list of joint names.
+
+* **`joint_right_name`** (string, default: "joint_right")
+
+  Right wheel joint name or list of joint names.
+
+* **`com_pitch_offset`** (double, default: 0)
+
+  The reduction ratio of pitch.
+
+* **`a`** (double[16])
+
+  State space expression.
+
+* **`b`** (double[8])
+
+  State space expression.
+
+* **`q`** (double[16])
+
+  Weight matrix.
+
+* **`r`** (double[4])
+
+  Weight matrix.
+
+##### Swerve
+
+* **`/modules/<module_name>/position`** (double[2])
+
+  The position of module.
+
+* **`/modules/<module_name>/pivot/joint`** (string)
+
+  Joint between chassis and privot.
+
+* **`/modules/<module_name>/pivot/offset`** (double)
+
+  Angle between the wheel rotation axis and the chassis's Y axis.
+
+* **`/modules/<module_name>/wheel/joint`** (string)
+
+  Joint between privot and wheel.
+
+* **`/modules/<module_name>/wheel/radius`** (double)
+
+  The radius of wheel.
+
+## Controller configuration examples
+
+### Complete description
+
+```
+chassis_controller:
+    type: rm_chassis_controllers/MecanumController
+    publish_rate: 100
+    enable_odom_tf: true
+    wheel_radius: 0.07625
+    left_front:
+      joint: "left_front_wheel_joint"
+      pid: { p: 0.8, i: 0, d: 0.0, i_max: 0.0, i_min: 0.0, antiwindup: true, publish_state: true }
+    right_front:
+      joint: "right_front_wheel_joint"
+      pid: { p: 0.8, i: 0, d: 0.0, i_max: 0.0, i_min: 0.0, antiwindup: true, publish_state: true }
+    left_back:
+      joint: "left_back_wheel_joint"
+      pid: { p: 0.8, i: 0, d: 0.0, i_max: 0.0, i_min: 0.0, antiwindup: true, publish_state: true }
+    right_back:
+      joint: "right_back_wheel_joint"
+      pid: { p: 0.8, i: 0, d: 0.0, i_max: 0.0, i_min: 0.0, antiwindup: true, publish_state: true }
+    twist_covariance_diagonal: [ 0.001, 0.001, 0.001, 0.001, 0.001, 0.001 ]
+    wheel_base: 0.395
+    wheel_track: 0.374
+    power:
+      coeff: 0.535
+      min_vel: 4.4
+    twist_angular: 0.5233
+    timeout: 0.1
+    pid_follow: { p: 5, i: 0, d: 0.8, i_max: 0.0, i_min: 0.0, antiwindup: true, publish_state: true }
+```
+
 ## Bugs & Feature Requests
-***
-Please report bugs and request features using the [Issue Tracker
-](https://github.com/gdut-dynamic-x/rm_template/issues).
+
+Please report bugs and request features using the [Issue Tracker](https://github.com/rm-controls/rm_controllers/issues).
