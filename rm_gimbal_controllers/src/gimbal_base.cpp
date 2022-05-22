@@ -77,17 +77,18 @@ bool Controller::init(hardware_interface::RobotHW* robot_hw, ros::NodeHandle& ro
   imu_sensor_handle_ = imu_sensor_interface->getHandle(imu_name_);
 
   gimbal_des_frame_id_ = ctrl_pitch_.joint_urdf_->child_link_name + "_des";
-  map2gimbal_des_.header.frame_id = "map";
-  map2gimbal_des_.child_frame_id = gimbal_des_frame_id_;
-  map2gimbal_des_.transform.rotation.w = 1.;
-  map2pitch_.header.frame_id = "map";
-  map2pitch_.child_frame_id = ctrl_pitch_.joint_urdf_->child_link_name;
-  map2pitch_.transform.rotation.w = 1.;
-  map2base_.header.frame_id = "map";
-  map2base_.child_frame_id = ctrl_yaw_.joint_urdf_->parent_link_name;
-  map2base_.transform.rotation.w = 1.;
+  odom2gimbal_des_.header.frame_id = "odom";
+  odom2gimbal_des_.child_frame_id = gimbal_des_frame_id_;
+  odom2gimbal_des_.transform.rotation.w = 1.;
+  odom2pitch_.header.frame_id = "odom";
+  odom2pitch_.child_frame_id = ctrl_pitch_.joint_urdf_->child_link_name;
+  odom2pitch_.transform.rotation.w = 1.;
+  odom2base_.header.frame_id = "odom";
+  odom2base_.child_frame_id = ctrl_yaw_.joint_urdf_->parent_link_name;
+  odom2base_.transform.rotation.w = 1.;
 
   cmd_gimbal_sub_ = controller_nh.subscribe<rm_msgs::GimbalCmd>("command", 1, &Controller::commandCB, this);
+  cmd_track_sub_ = controller_nh.subscribe<rm_msgs::TrackCmd>("track_command", 1, &Controller::trackCB, this);
   publish_rate_ = getParam(controller_nh, "publish_rate", 100.);
   error_pub_.reset(new realtime_tools::RealtimePublisher<rm_msgs::GimbalDesError>(controller_nh, "error", 100));
 
@@ -103,10 +104,11 @@ void Controller::starting(const ros::Time& /*unused*/)
 void Controller::update(const ros::Time& time, const ros::Duration& period)
 {
   cmd_gimbal_ = *cmd_rt_buffer_.readFromRT();
+  cmd_track_ = *track_rt_buffer_.readFromNonRT();
   try
   {
-    map2pitch_ = robot_state_handle_.lookupTransform("map", ctrl_pitch_.joint_urdf_->child_link_name, time);
-    map2base_ = robot_state_handle_.lookupTransform("map", ctrl_yaw_.joint_urdf_->parent_link_name, time);
+    odom2pitch_ = robot_state_handle_.lookupTransform("odom", ctrl_pitch_.joint_urdf_->child_link_name, time);
+    odom2base_ = robot_state_handle_.lookupTransform("odom", ctrl_yaw_.joint_urdf_->parent_link_name, time);
   }
   catch (tf2::TransformException& ex)
   {
@@ -135,42 +137,49 @@ void Controller::update(const ros::Time& time, const ros::Duration& period)
 
 void Controller::setDes(const ros::Time& time, double yaw_des, double pitch_des)
 {
-  tf2::Quaternion map2base, map2last_des, map2gimbal_des;
+  tf2::Quaternion odom2base, odom2gimbal_des;
   tf2::Quaternion base2gimbal_des;
-  double pitch_last, yaw_last;
-  tf2::fromMsg(map2base_.transform.rotation, map2base);
-  tf2::fromMsg(map2gimbal_des_.transform.rotation, map2last_des);
-  map2gimbal_des.setRPY(0, pitch_des, yaw_des);
-  base2gimbal_des = map2base.inverse() * map2gimbal_des;
-  tf2::Quaternion base2last_des = map2base.inverse() * map2last_des;
+  tf2::fromMsg(odom2base_.transform.rotation, odom2base);
+  odom2gimbal_des.setRPY(0, pitch_des, yaw_des);
+  base2gimbal_des = odom2base.inverse() * odom2gimbal_des;
   double roll_temp, base2gimbal_current_des_pitch, base2gimbal_current_des_yaw;
-  double base2gimbal_last_des_pitch, base2gimbal_last_des_yaw;
-  quatToRPY(map2gimbal_des_.transform.rotation, roll_temp, pitch_last, yaw_last);
   quatToRPY(toMsg(base2gimbal_des), roll_temp, base2gimbal_current_des_pitch, base2gimbal_current_des_yaw);
-  quatToRPY(toMsg(base2last_des), roll_temp, base2gimbal_last_des_pitch, base2gimbal_last_des_yaw);
   double pitch_real_des, yaw_real_des;
 
-  if (!setDesIntoLimit(pitch_real_des, pitch_des, pitch_last, base2gimbal_current_des_pitch, base2gimbal_last_des_pitch,
-                       ctrl_pitch_.joint_urdf_))
+  if (!setDesIntoLimit(pitch_real_des, pitch_des, base2gimbal_current_des_pitch, ctrl_pitch_.joint_urdf_))
   {
     double yaw_temp;
     tf2::Quaternion base2new_des;
-    base2new_des.setRPY(0, ctrl_pitch_.getPosition(), base2gimbal_current_des_yaw);
-    quatToRPY(toMsg(map2base * base2new_des), roll_temp, pitch_real_des, yaw_temp);
+    double upper_limit, lower_limit;
+    upper_limit = ctrl_pitch_.joint_urdf_->limits ? ctrl_pitch_.joint_urdf_->limits->upper : 1e16;
+    lower_limit = ctrl_pitch_.joint_urdf_->limits ? ctrl_pitch_.joint_urdf_->limits->lower : -1e16;
+    base2new_des.setRPY(0,
+                        std::abs(angles::shortest_angular_distance(base2gimbal_current_des_pitch, upper_limit)) <
+                                std::abs(angles::shortest_angular_distance(base2gimbal_current_des_pitch, lower_limit)) ?
+                            upper_limit :
+                            lower_limit,
+                        base2gimbal_current_des_yaw);
+    quatToRPY(toMsg(odom2base * base2new_des), roll_temp, pitch_real_des, yaw_temp);
   }
 
-  if (!setDesIntoLimit(yaw_real_des, yaw_des, yaw_last, base2gimbal_current_des_yaw, base2gimbal_last_des_yaw,
-                       ctrl_yaw_.joint_urdf_))
+  if (!setDesIntoLimit(yaw_real_des, yaw_des, base2gimbal_current_des_yaw, ctrl_yaw_.joint_urdf_))
   {
     double pitch_temp;
     tf2::Quaternion base2new_des;
-    base2new_des.setRPY(0, base2gimbal_current_des_pitch, ctrl_yaw_.getPosition());
-    quatToRPY(toMsg(map2base * base2new_des), roll_temp, pitch_temp, yaw_real_des);
+    double upper_limit, lower_limit;
+    upper_limit = ctrl_yaw_.joint_urdf_->limits ? ctrl_yaw_.joint_urdf_->limits->upper : 1e16;
+    lower_limit = ctrl_yaw_.joint_urdf_->limits ? ctrl_yaw_.joint_urdf_->limits->lower : -1e16;
+    base2new_des.setRPY(0, base2gimbal_current_des_pitch,
+                        std::abs(angles::shortest_angular_distance(base2gimbal_current_des_yaw, upper_limit)) <
+                                std::abs(angles::shortest_angular_distance(base2gimbal_current_des_yaw, lower_limit)) ?
+                            upper_limit :
+                            lower_limit);
+    quatToRPY(toMsg(odom2base * base2new_des), roll_temp, pitch_temp, yaw_real_des);
   }
 
-  map2gimbal_des_.transform.rotation = tf::createQuaternionMsgFromRollPitchYaw(0., pitch_real_des, yaw_real_des);
-  map2gimbal_des_.header.stamp = time;
-  robot_state_handle_.setTransform(map2gimbal_des_, "rm_gimbal_controllers");
+  odom2gimbal_des_.transform.rotation = tf::createQuaternionMsgFromRollPitchYaw(0., pitch_real_des, yaw_real_des);
+  odom2gimbal_des_.header.stamp = time;
+  robot_state_handle_.setTransform(odom2gimbal_des_, "rm_gimbal_controllers");
 }
 
 void Controller::rate(const ros::Time& time, const ros::Duration& period)
@@ -179,14 +188,14 @@ void Controller::rate(const ros::Time& time, const ros::Duration& period)
   {  // on enter
     state_changed_ = false;
     ROS_INFO("[Gimbal] Enter RATE");
-    map2gimbal_des_.transform.rotation = map2pitch_.transform.rotation;
-    map2gimbal_des_.header.stamp = time;
-    robot_state_handle_.setTransform(map2gimbal_des_, "rm_gimbal_controllers");
+    odom2gimbal_des_.transform.rotation = odom2pitch_.transform.rotation;
+    odom2gimbal_des_.header.stamp = time;
+    robot_state_handle_.setTransform(odom2gimbal_des_, "rm_gimbal_controllers");
   }
   else
   {
     double roll{}, pitch{}, yaw{};
-    quatToRPY(map2gimbal_des_.transform.rotation, roll, pitch, yaw);
+    quatToRPY(odom2gimbal_des_.transform.rotation, roll, pitch, yaw);
     setDes(time, yaw + period.toSec() * cmd_gimbal_.rate_yaw, pitch + period.toSec() * cmd_gimbal_.rate_pitch);
   }
 }
@@ -199,26 +208,27 @@ void Controller::track(const ros::Time& time)
     ROS_INFO("[Gimbal] Enter TRACK");
   }
   double roll_real, pitch_real, yaw_real;
-  quatToRPY(map2pitch_.transform.rotation, roll_real, pitch_real, yaw_real);
+  quatToRPY(odom2pitch_.transform.rotation, roll_real, pitch_real, yaw_real);
   double yaw_compute = yaw_real;
   double pitch_compute = -pitch_real;
-  geometry_msgs::Point target_pos = cmd_gimbal_.target_pos.point;
-  geometry_msgs::Vector3 target_vel = cmd_gimbal_.target_vel.vector;
+  geometry_msgs::Point target_pos = cmd_track_.target_pos;
+  geometry_msgs::Vector3 target_vel = cmd_track_.target_vel;
   try
   {
-    if (!cmd_gimbal_.target_pos.header.frame_id.empty())
+    if (!cmd_track_.header.frame_id.empty())
       tf2::doTransform(target_pos, target_pos,
-                       robot_state_handle_.lookupTransform("map", cmd_gimbal_.target_pos.header.frame_id,
-                                                           cmd_gimbal_.target_pos.header.stamp));
-    if (!cmd_gimbal_.target_vel.header.frame_id.empty())
+                       robot_state_handle_.lookupTransform("odom", cmd_track_.header.frame_id, cmd_track_.header.stamp));
+    if (!cmd_track_.header.frame_id.empty())
       tf2::doTransform(target_vel, target_vel,
-                       robot_state_handle_.lookupTransform("map", cmd_gimbal_.target_vel.header.frame_id,
-                                                           cmd_gimbal_.target_vel.header.stamp));
+                       robot_state_handle_.lookupTransform("odom", cmd_track_.header.frame_id, cmd_track_.header.stamp));
   }
   catch (tf2::TransformException& ex)
   {
     ROS_WARN("%s", ex.what());
   }
+  target_pos.x = target_pos.x - odom2pitch_.transform.translation.x;
+  target_pos.y = target_pos.y - odom2pitch_.transform.translation.y;
+  target_pos.z = target_pos.z - odom2pitch_.transform.translation.z;
 
   bool solve_success = bullet_solver_->solve(target_pos, target_vel, cmd_gimbal_.bullet_speed);
 
@@ -232,7 +242,7 @@ void Controller::track(const ros::Time& time)
       error_pub_->msg_.error = solve_success ? error : 1.0;
       error_pub_->unlockAndPublish();
     }
-    bullet_solver_->bulletModelPub(map2pitch_, time);
+    bullet_solver_->bulletModelPub(odom2pitch_, time);
     last_publish_time_ = time;
   }
 
@@ -240,8 +250,8 @@ void Controller::track(const ros::Time& time)
     setDes(time, bullet_solver_->getYaw(), bullet_solver_->getPitch());
   else
   {
-    map2gimbal_des_.header.stamp = time;
-    robot_state_handle_.setTransform(map2gimbal_des_, "rm_gimbal_controllers");
+    odom2gimbal_des_.header.stamp = time;
+    robot_state_handle_.setTransform(odom2gimbal_des_, "rm_gimbal_controllers");
   }
 }
 
@@ -252,28 +262,28 @@ void Controller::direct(const ros::Time& time)
     state_changed_ = false;
     ROS_INFO("[Gimbal] Enter DIRECT");
   }
-  geometry_msgs::Point aim_point_map = cmd_gimbal_.target_pos.point;
+  geometry_msgs::Point aim_point_odom = cmd_gimbal_.target_pos.point;
   try
   {
     if (!cmd_gimbal_.target_pos.header.frame_id.empty())
-      tf2::doTransform(aim_point_map, aim_point_map,
-                       robot_state_handle_.lookupTransform("map", cmd_gimbal_.target_pos.header.frame_id,
+      tf2::doTransform(aim_point_odom, aim_point_odom,
+                       robot_state_handle_.lookupTransform("odom", cmd_gimbal_.target_pos.header.frame_id,
                                                            cmd_gimbal_.target_pos.header.stamp));
   }
   catch (tf2::TransformException& ex)
   {
     ROS_WARN("%s", ex.what());
   }
-  double yaw = std::atan2(aim_point_map.y - map2pitch_.transform.translation.y,
-                          aim_point_map.x - map2pitch_.transform.translation.x);
-  double pitch = -std::atan2(aim_point_map.z - map2pitch_.transform.translation.z,
-                             std::sqrt(std::pow(aim_point_map.x - map2pitch_.transform.translation.x, 2) +
-                                       std::pow(aim_point_map.y - map2pitch_.transform.translation.y, 2)));
+  double yaw = std::atan2(aim_point_odom.y - odom2pitch_.transform.translation.y,
+                          aim_point_odom.x - odom2pitch_.transform.translation.x);
+  double pitch = -std::atan2(aim_point_odom.z - odom2pitch_.transform.translation.z,
+                             std::sqrt(std::pow(aim_point_odom.x - odom2pitch_.transform.translation.x, 2) +
+                                       std::pow(aim_point_odom.y - odom2pitch_.transform.translation.y, 2)));
   setDes(time, yaw, pitch);
 }
 
-bool Controller::setDesIntoLimit(double& real_des, double current_des, double last_des, double base2gimbal_current_des,
-                                 double base2gimbal_last_des, const urdf::JointConstSharedPtr& joint_urdf)
+bool Controller::setDesIntoLimit(double& real_des, double current_des, double base2gimbal_current_des,
+                                 const urdf::JointConstSharedPtr& joint_urdf)
 {
   double upper_limit, lower_limit;
   upper_limit = joint_urdf->limits ? joint_urdf->limits->upper : 1e16;
@@ -282,10 +292,6 @@ bool Controller::setDesIntoLimit(double& real_des, double current_des, double la
       (angles::two_pi_complement(base2gimbal_current_des) <= upper_limit &&
        angles::two_pi_complement(base2gimbal_current_des) >= lower_limit))
     real_des = current_des;
-  else if ((base2gimbal_last_des <= upper_limit && base2gimbal_last_des >= lower_limit) ||
-           (angles::two_pi_complement(base2gimbal_last_des) <= upper_limit &&
-            angles::two_pi_complement(base2gimbal_last_des) >= lower_limit))
-    real_des = last_des;
   else
     return false;
   return true;
@@ -340,7 +346,7 @@ double Controller::feedForward(const ros::Time& time)
 {
   Eigen::Vector3d gravity(0, 0, -gravity_);
   tf2::doTransform(gravity, gravity,
-                   robot_state_handle_.lookupTransform(ctrl_pitch_.joint_urdf_->child_link_name, "map", time));
+                   robot_state_handle_.lookupTransform(ctrl_pitch_.joint_urdf_->child_link_name, "odom", time));
   Eigen::Vector3d mass_origin(mass_origin_.x, 0, mass_origin_.z);
   double feedforward = -mass_origin.cross(gravity).y();
   if (enable_gravity_compensation_)
@@ -357,6 +363,11 @@ double Controller::feedForward(const ros::Time& time)
 void Controller::commandCB(const rm_msgs::GimbalCmdConstPtr& msg)
 {
   cmd_rt_buffer_.writeFromNonRT(*msg);
+}
+
+void Controller::trackCB(const rm_msgs::TrackCmdConstPtr& msg)
+{
+  track_rt_buffer_.writeFromNonRT(*msg);
 }
 
 }  // namespace rm_gimbal_controllers
