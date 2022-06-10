@@ -1,25 +1,21 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>tof_sensor_controller</name>
+  <name>mimic_joint_controller</name>
   <version>0.1.5</version>
-  <description>The tof_sensor_controller package</description>
-  <maintainer email="luotinkai@todo.todo">luotinkai</maintainer>
+  <description>The mimic_joint_controller package</description>
+  <maintainer email="lvjunqi@todo.todo">ljq</maintainer>
 
   <license>BSD</license>
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <depend>rm_msgs</depend>
-  <depend>rm_common</depend>
   <depend>pluginlib</depend>
   <depend>roscpp</depend>
   <depend>roslint</depend>
   <depend>controller_interface</depend>
   <depend>hardware_interface</depend>
-  <depend>realtime_tools</depend>
-
 
   <export>
-    <controller_interface plugin="${prefix}/tof_sensor_controller_plugins.xml"/>
+    <controller_interface plugin="${prefix}/mimic_joint_controller_plugins.xml"/>
   </export>
 </package>
