@@ -13,22 +13,11 @@ add_definitions(-Wall -Werror -Wno-enum-compare)
 find_package(catkin REQUIRED
         COMPONENTS
         roscpp
-        roslint
 
-        rm_msgs
         rm_common
 
-        nav_msgs
-        pluginlib
-        hardware_interface
-        controller_interface
-        forward_command_controller
-        realtime_tools
-        control_toolbox
         effort_controllers
-        tf2
         tf2_geometry_msgs
-        angles
         )
 
 find_package(Eigen3 REQUIRED)
@@ -49,22 +38,11 @@ catkin_package(
         LIBRARIES
         CATKIN_DEPENDS
         roscpp
-        roslint
 
-        rm_msgs
         rm_common
 
-        nav_msgs
-        pluginlib
-        hardware_interface
-        controller_interface
-        forward_command_controller
-        realtime_tools
-        control_toolbox
         effort_controllers
-        tf2
         tf2_geometry_msgs
-        angles
         LIBRARIES ${PROJECT_NAME}
 )
 
@@ -82,7 +60,6 @@ include_directories(
 ## Declare cpp executables
 add_library(${PROJECT_NAME}
         src/chassis_base.cpp
-        src/mecanum.cpp
         src/omni.cpp
         src/sentry.cpp
         src/swerve.cpp
@@ -115,7 +92,7 @@ install(
 
 # Mark other files for installation
 install(
-        DIRECTORY config launch
+        DIRECTORY test
         DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}
 )
 install(
@@ -135,9 +112,3 @@ install(
 #      test/AlgorithmTest.cpp)
 #  target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME}_core)
 #endif ()
-
-##########################
-## Static code analysis ##
-##########################
-
-roslint_cpp()
