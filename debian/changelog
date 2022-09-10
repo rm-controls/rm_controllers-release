@@ -1,0 +1,19 @@
+ros-noetic-tof-radar-controller (0.1.7-1focal) focal; urgency=high
+
+  * Merge remote-tracking branch 'origin/master'
+  * Contributors: qiayuan
+
+ -- luotinkai <luotinkai@todo.todo>  Sat, 10 Sep 2022 00:00:00 -0000
+
+ros-noetic-tof-radar-controller (0.1.6-1focal) focal; urgency=high
+
+  * Merge pull request #76 <https://github.com/rm-controls/rm_controllers/issues/76> from Edwinlinks/tof-radar-controller
+    Finished tof radar controller and delete tof sensor controller
+  * Change exec depend tof_sensor_controller to tof_radar_controller
+  * Modify format error
+  * Modify tof sensor controller to tof radar controller
+  * Contributors: Edwinlinks, QiayuanLiao
+
+ -- luotinkai <luotinkai@todo.todo>  Thu, 16 Jun 2022 00:00:00 -0000
+
+
