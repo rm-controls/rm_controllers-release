@@ -42,6 +42,7 @@
 #include <rm_common/ori_tool.h>
 #include <pluginlib/class_list_macros.hpp>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf/transform_datatypes.h>
 
 namespace rm_gimbal_controllers
 {
@@ -354,7 +355,7 @@ void Controller::moveJoint(const ros::Time& time, const ros::Duration& period)
     yaw_vel_des = cmd_gimbal_.rate_yaw;
     pitch_vel_des = cmd_gimbal_.rate_pitch;
   }
-  else
+  else if (state_ == TRACK)
   {
     geometry_msgs::Point target_pos = data_track_.target_pos;
     geometry_msgs::Vector3 target_vel = data_track_.target_vel;
