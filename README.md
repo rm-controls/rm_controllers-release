@@ -1,3 +1,36 @@
+## rm_controllers (noetic) - 0.1.10-1
+
+The packages in the `rm_controllers` repository were released into the `noetic` distro by running `/usr/bin/bloom-release -y --no-web --ros-distro noetic --override-release-repository-push-url https://github.com/rm-controls/rm_controllers-release.git rm_controllers` on `Fri, 24 Mar 2023 17:13:44 -0000`
+
+These packages were released:
+- `gpio_controller`
+- `mimic_joint_controller`
+- `rm_calibration_controllers`
+- `rm_chassis_controllers`
+- `rm_controllers`
+- `rm_gimbal_controllers`
+- `rm_orientation_controller`
+- `rm_shooter_controllers`
+- `robot_state_controller`
+- `tof_radar_controller`
+
+Version of package(s) in repository `rm_controllers`:
+
+- upstream repository: https://github.com/rm-controls/rm_controllers.git
+- release repository: https://github.com/rm-controls/rm_controllers-release.git
+- rosdistro version: `0.1.7-1`
+- old version: `0.1.9-1`
+- new version: `0.1.10-1`
+
+Versions of tools used:
+
+- bloom version: `0.11.2`
+- catkin_pkg version: `0.5.2`
+- rosdep version: `0.22.2`
+- rosdistro version: `0.9.0`
+- vcstools version: `0.1.42`
+
+
 ## rm_controllers (noetic) - 0.1.9-1
 
 The packages in the `rm_controllers` repository were released into the `noetic` distro by running `/usr/bin/bloom-release -y --no-web --ros-distro noetic --override-release-repository-push-url https://github.com/rm-controls/rm_controllers-release.git rm_controllers` on `Tue, 21 Feb 2023 12:38:28 -0000`
